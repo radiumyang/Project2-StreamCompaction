@@ -1,0 +1,4 @@
+(ArraySize)            16         64        200        600       1000
+Naive               0.935      1.328      2.526      2.033      2.178
+Shared-single       1.746      1.798   oversize   oversize   oversize
+Shared-general      0.881      1.470     11.865      1.596      6.200

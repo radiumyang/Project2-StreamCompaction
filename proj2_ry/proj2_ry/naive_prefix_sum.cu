@@ -11,7 +11,7 @@
 #include <thrust/copy.h>
 
 #define BLOCKSIZE 128
-#define ARRAYSIZE 16
+#define ARRAYSIZE 600
 
 __global__ void NaiveKernel(float* inputd, float* outputd, float* temp, int d, int n, int swap)
 {
@@ -59,7 +59,14 @@ void naive_prefix_sum (float *& output, float *input, int n)
 	}
 	cudaMalloc((void**)&tempd, size);
 	cudaMemcpy(tempd, temp, size, cudaMemcpyHostToDevice);
-
+	
+	// check runtime...
+	// Prepare
+	cudaEvent_t start, stop;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+	// Start record
+	cudaEventRecord(start, 0);
 	for(int d = 1; d<=loopNum; d++){
 		
 		NaiveKernel<<<dimGrid, dimBlock>>>(inputd, outputd, tempd, d, n, swap);
@@ -82,6 +89,18 @@ void naive_prefix_sum (float *& output, float *input, int n)
 	}
 	
 	cudaMemcpy(output, outputd, size, cudaMemcpyDeviceToHost);
+
+	cudaEventRecord(stop, 0);
+	cudaEventSynchronize(stop);
+	float elapsedTime;
+	cudaEventElapsedTime(&elapsedTime, start, stop); // that's our time!
+
+	std::cout<<std::endl;
+	std::cout<<"Naive Prefix Sum Runtime: "<<elapsedTime<< ";  ArraySize: "<<ARRAYSIZE<<std::endl;
+	// Clean up:
+	cudaEventDestroy(start);
+	cudaEventDestroy(stop);
+
 	cudaFree(outputd); cudaFree(inputd);
 
 	std::cout<<"Naive Prefix Sum Output:"<<std::endl;
@@ -139,10 +158,30 @@ void shared_prefix_sum (float * output, float *input, int n)
 	dim3 dimGrid(1);
 
 	cudaMalloc((void**)&outputd, size);
+	
+	// check runtime...
+	// Prepare
+	cudaEvent_t start, stop;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+	// Start record
+	cudaEventRecord(start, 0);
 
 	SharedKernel<<<dimGrid, dimBlock, BLOCKSIZE*sizeof(float)>>>(inputd, outputd, n);
 
 	cudaMemcpy(output, outputd, size, cudaMemcpyDeviceToHost);
+
+	cudaEventRecord(stop, 0);
+	cudaEventSynchronize(stop);
+	float elapsedTime;
+	cudaEventElapsedTime(&elapsedTime, start, stop); // that's our time!
+
+	std::cout<<std::endl;
+	std::cout<<"Shared Memory Single-Block Prefix Sum Runtime: "<<elapsedTime<< ";  ArraySize: "<<ARRAYSIZE<<std::endl;
+	// Clean up:
+	cudaEventDestroy(start);
+	cudaEventDestroy(stop);
+
 	cudaFree(outputd); cudaFree(inputd);
 
 	std::cout<<"Shared Memory Prefix Sum Output:"<<std::endl;
@@ -174,7 +213,6 @@ __global__ void SharedGeneralKernel(float * input, float *output, float *sum, in
 		tmp2[tx] = (index > 0) ? input[index-1] : 0; 
 
 		__syncthreads(); 
-
 	
 		 for (int offset = 1; offset < n; offset *= 2) 
 		 { 
@@ -221,17 +259,38 @@ void shared_prefix_sum_general(float*& output, float* input, int n)
 	cudaMalloc((void**)&outputd, size);
 	cudaMalloc((void**)&sumd, size2);
 
+	// check runtime...
+	// Prepare
+	cudaEvent_t start, stop;
+	cudaEventCreate(&start);
+	cudaEventCreate(&stop);
+	// Start record
+	cudaEventRecord(start, 0);
+
+
 	SharedGeneralKernel<<<dimGrid, dimBlock, n*sizeof(float)>>>(inputd, outputd, sumd, n);
 	SharedGeneralKernel_plus<<<dimGrid, dimBlock>>>(inputd, outputd, sumd, n);
 	cudaMemcpy(sum, sumd, size2, cudaMemcpyDeviceToHost);
 	cudaMemcpy(output, outputd, size, cudaMemcpyDeviceToHost);
+
+	cudaEventRecord(stop, 0);
+	cudaEventSynchronize(stop);
+	float elapsedTime;
+	cudaEventElapsedTime(&elapsedTime, start, stop); 
+
+	std::cout<<std::endl;
+	std::cout<<"Shared Memory General Prefix Sum Runtime: "<<elapsedTime<< ";  ArraySize: "<<ARRAYSIZE<<std::endl;
+	// Clean up:
+	cudaEventDestroy(start);
+	cudaEventDestroy(stop);
+
 	cudaFree(outputd); cudaFree(inputd); cudaFree(sumd);
 
-	std::cout<<"Sum:"<<std::endl;
-	for(int i = 0; i<blocknum; i++)
-	{
-		std::cout<<sum[i]<<" ";
-	}
+	//std::cout<<"Sum:"<<std::endl;
+	//for(int i = 0; i<blocknum; i++)
+	//{
+	//	std::cout<<sum[i]<<" ";
+	//}
 	std::cout<<std::endl;
 
 	std::cout<<"Shared Memory GENERAL Prefix Sum Output:"<<std::endl;
